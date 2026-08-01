@@ -3,7 +3,7 @@
   <groupId>io.github.teq-niq</groupId>
   <artifactId>swagger-ui-bff</artifactId>
   <name>Swagger UI BFF Extension</name>
-  <description>Custom Swagger UI build optimization tailored for contract-first Backend-for-Frontend architectures.</description>
+  <description>Custom Swagger UI build optimization tailored for  Backend-for-Frontend .</description>
   <url>https://github.com/teq-niq/swagger-ui-bff</url>
   <version>5.32.8-bff-1.0.0-SNAPSHOT</version>
   <packaging>jar</packaging>
