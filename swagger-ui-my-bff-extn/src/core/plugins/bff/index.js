@@ -91,11 +91,13 @@ const BffPlugin = () => () => {
 				}
 				else{
 					fetch(def.logout, { method: "GET", credentials: "include" })
-					     .then(() => {
+					     .then(resp => {
+					       if (!resp.ok) system.errActions.newAuthErr({ authId: schemeName, level: "error", source: "auth", message: `BFF logout failed (${resp.status}) — session may still be active. Refresh if issues persist.` })
 						   oriLogout([schemeName]);
 					     })
-					     .catch(err => {console.error("Inline BFF logout failed", err);
-							oriLogout([schemeName]);
+.catch(err => {
+					   system.errActions.newAuthErr({ authId: schemeName, level: "error", source: "auth", message: `BFF logout: server unreachable — session may still be active. Refresh if issues persist.` })
+					   oriLogout([schemeName]);
 						 })
 						 
 				}
