@@ -130,6 +130,7 @@ const BffPlugin = () => () => {
 						  // - loggedIn undefined / null
 						  
 						  // perform inline login
+						  system.errActions.clear({ authId: schemeName, type: "auth", source: "auth" })
 
 						try {
 
@@ -159,7 +160,11 @@ const BffPlugin = () => () => {
 						  })*/
 	
 						  if (!resp.ok) {
-						    throw new Error(`Login failed: ${resp.status}`)
+						    const message = resp.status === 401
+						      ? "Invalid credentials."
+						      : `BFF login failed (${resp.status}) — try again or refresh.`
+						    system.errActions.newAuthErr({ authId: schemeName, level: "error", source: "auth", message })
+						    return
 						  }
 	
 						  // session-derived state only (no password retained)
@@ -179,7 +184,7 @@ const BffPlugin = () => () => {
 						  oriAuthorize(authObj)
 						  return
 						} catch (err) {
-						  console.error("BFF login failed", err)
+						  system.errActions.newAuthErr({ authId: schemeName, level: "error", source: "auth", message: `BFF login: server unreachable — try again later.` })
 						  return
 						}
 				}
