@@ -51,6 +51,7 @@ export default class BffEnabler extends React.Component {
               })
               .then((json) => {
                 const loggedIn = !!json?.loggedIn;
+                // no else needed: full-page app, Redux state is blank on every load — nothing stale to clear
                 if (loggedIn) {
                   
 				  const authObj = {
