@@ -197,9 +197,7 @@ const BffPlugin = () => () => {
 
             }
 
-            // fallback for non-BFF
-			//like super method call
-			//TODO: remove passwords from payload for bff schemes.
+            // only bff+redirectforlogin:false is handled in above loop; all other schemes fall through here
             oriAuthorize(payload)
           },
         },
