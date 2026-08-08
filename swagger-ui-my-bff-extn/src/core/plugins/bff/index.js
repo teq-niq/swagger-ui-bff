@@ -50,6 +50,165 @@ function getCsrfTokenFromCookie(name) {
   return match ? match[2] : null
 }
 
+function getReachabilityGuardedRedirectDef(defs) {
+  for (const defObjMap of defs || []) {
+    const defObj = defObjMap.toJS()
+    const schemeName = Object.keys(defObj)[0]
+    const def = defObj[schemeName]
+
+    if (
+      def &&
+      def.scheme === "bff" &&
+      def.redirectforlogin === true &&
+      def.login &&
+      def.reachability
+    ) {
+      return { schemeName, reachabilityUrl: def.reachability }
+    }
+  }
+
+  return null
+}
+
+function isSchemeAlreadyAuthorized(system, schemeName) {
+  const authorized =
+    system &&
+    system.authSelectors &&
+    typeof system.authSelectors.authorized === "function"
+      ? system.authSelectors.authorized()
+      : null
+
+  if (!authorized || !schemeName) {
+    return false
+  }
+
+  // Works with Immutable.Map as used by Swagger auth state.
+  if (typeof authorized.get === "function") {
+    return !!authorized.get(schemeName)
+  }
+
+  // Defensive fallback for plain objects.
+  return !!authorized[schemeName]
+}
+
+async function probeReachability(url) {
+  const resp = await fetch(url, { credentials: "include", cache: "no-store" })
+  if (!resp.ok) {
+    return false
+  }
+
+  const json = await resp.json()
+  return json && json.reachabilitySummary === true
+}
+
+function handleReachabilityGatedShowDefinitions({ payload, system, oriShowDefinitions }) {
+  const defs = payload || system.authSelectors.definitionsToAuthorize()
+  const guardedDef = getReachabilityGuardedRedirectDef(defs)
+
+  if (!guardedDef) {
+    return oriShowDefinitions(payload)
+  }
+
+  const { schemeName, reachabilityUrl } = guardedDef
+
+  // Already logged in for this scheme: do not gate lock click with reachability.
+  if (isSchemeAlreadyAuthorized(system, schemeName)) {
+    return oriShowDefinitions(payload)
+  }
+
+  system.errActions.clear({ authId: schemeName, type: "auth", source: "auth" })
+
+  probeReachability(reachabilityUrl)
+    .then((isReachable) => {
+      if (isReachable) {
+        oriShowDefinitions(payload)
+        return
+      }
+
+      system.errActions.newAuthErr({
+        authId: schemeName,
+        level: "error",
+        source: "auth",
+        message: "Login is temporarily unavailable. Please try again shortly",
+      })
+    })
+    .catch(() => {
+      system.errActions.newAuthErr({
+        authId: schemeName,
+        level: "error",
+        source: "auth",
+        message: "Login is temporarily unavailable. Please try again shortly",
+      })
+    })
+}
+
+function handleReachabilityGatedRedirectLogout({ def, schemeName, system }) {
+  const handleRedirectLogout = () => {
+    setTimeout(() => {
+      window.location.href = def.logout
+    }, 50)
+  }
+
+  if (!def.reachability) {
+    handleRedirectLogout()
+    return
+  }
+
+  system.errActions.clear({ authId: schemeName, type: "auth", source: "auth" })
+
+  probeReachability(def.reachability)
+    .then((isReachable) => {
+      if (isReachable) {
+        handleRedirectLogout()
+        return
+      }
+
+      system.errActions.newAuthErr({
+        authId: schemeName,
+        level: "error",
+        source: "auth",
+        message: "Logout is temporarily unavailable. Please try again shortly",
+      })
+    })
+    .catch(() => {
+      system.errActions.newAuthErr({
+        authId: schemeName,
+        level: "error",
+        source: "auth",
+        message: "Logout is temporarily unavailable. Please try again shortly",
+      })
+    })
+}
+
+async function canProceedWithReachability({ def, schemeName, system, unavailableMessage }) {
+  if (!def.reachability) {
+    return true
+  }
+
+  try {
+    const isReachable = await probeReachability(def.reachability)
+    if (isReachable) {
+      return true
+    }
+
+    system.errActions.newAuthErr({
+      authId: schemeName,
+      level: "error",
+      source: "auth",
+      message: unavailableMessage,
+    })
+    return false
+  } catch (err) {
+    system.errActions.newAuthErr({
+      authId: schemeName,
+      level: "error",
+      source: "auth",
+      message: unavailableMessage,
+    })
+    return false
+  }
+}
+
 
 const BffPlugin = () => () => {
   return {
@@ -60,6 +219,9 @@ const BffPlugin = () => () => {
     statePlugins: {
       auth: {
         wrapActions: {
+          showDefinitions: (oriShowDefinitions, system) => (payload) =>
+            handleReachabilityGatedShowDefinitions({ payload, system, oriShowDefinitions }),
+
           logout: (oriLogout, system) => (payload) => {
             const defs = system.authSelectors.definitionsToAuthorize()
             const schemeList = Array.isArray(payload)
@@ -83,14 +245,24 @@ const BffPlugin = () => () => {
 
               if (def.scheme === "bff" && def.logout) {
 				if(def.redirectforlogin === true){
-					setTimeout(() => {
-					                 window.location.href = def.logout
-					               }, 50)
-					               // redirect takes us away; stop processing
-					               return
+          handleReachabilityGatedRedirectLogout({ def, schemeName, system })
+
+          // async branch handled above
+          return
 				}
-				else{
-					fetch(def.logout, { method: "GET", credentials: "include" })
+        else{
+          canProceedWithReachability({
+            def,
+            schemeName,
+            system,
+            unavailableMessage: "Logout is temporarily unavailable. Please try again shortly",
+          })
+            .then((canProceed) => {
+              if (!canProceed) {
+                return
+              }
+
+            fetch(def.logout, { method: "GET", credentials: "include" })
 					     .then(resp => {
 					       if (!resp.ok) system.errActions.newAuthErr({ authId: schemeName, level: "error", source: "auth", message: `BFF logout failed (${resp.status}) — session may still be active. Refresh if issues persist.` })
 						   oriLogout([schemeName]);
@@ -98,7 +270,8 @@ const BffPlugin = () => () => {
 .catch(err => {
 					   system.errActions.newAuthErr({ authId: schemeName, level: "error", source: "auth", message: `BFF logout: server unreachable — session may still be active. Refresh if issues persist.` })
 					   oriLogout([schemeName]);
-						 })
+             })
+            })
 						 
 				}
                
@@ -131,6 +304,16 @@ const BffPlugin = () => () => {
 						  
 						  // perform inline login
 						  system.errActions.clear({ authId: schemeName, type: "auth", source: "auth" })
+
+            const canProceed = await canProceedWithReachability({
+              def,
+              schemeName,
+              system,
+              unavailableMessage: "Login is temporarily unavailable. Please try again shortly",
+            })
+            if (!canProceed) {
+              return
+            }
 
 						try {
 
