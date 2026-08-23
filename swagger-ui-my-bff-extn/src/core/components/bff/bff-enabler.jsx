@@ -1,5 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
+import { BFF_PROFILE_CHECK } from "./../../plugins/bff/extension-keys";
 
 export default class BffEnabler extends React.Component {
   static propTypes = {
@@ -37,7 +38,7 @@ export default class BffEnabler extends React.Component {
         if (scheme === "bff" && type === "http") {
          
 
-          const profileUrl = def["profilecheck"];
+          const profileUrl = def[BFF_PROFILE_CHECK];
           if (profileUrl) {
             // fetch login status
             const check = fetch(profileUrl, { credentials: "include", cache: "no-store" })
