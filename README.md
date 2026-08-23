@@ -26,3 +26,10 @@ The produced artifact is consumed by bff-demos so the apps serve Swagger UI from
 Node/npm are managed by frontend-maven-plugin during the build.
 
 
+## Tip
+
+If using in an IDE like eclipse it might help to uncheck Project > Build Automatically.
+Could have avoided this need by creating a deploy profile. But have chosen for now to keep the actual deploy as simple as i could instead.
+
+
+
