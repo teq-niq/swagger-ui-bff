@@ -59,11 +59,11 @@ function getReachabilityGuardedRedirectDef(defs) {
     if (
       def &&
       def.scheme === "bff" &&
-      def.redirectforlogin === true &&
-      def.login &&
-      def.reachability
+      def["x-redirectforlogin"] === true &&
+      def["x-login"] &&
+      def["x-reachability"]
     ) {
-      return { schemeName, reachabilityUrl: def.reachability }
+      return { schemeName, reachabilityUrl: def["x-reachability"] }
     }
   }
 
@@ -145,18 +145,18 @@ function handleReachabilityGatedShowDefinitions({ payload, system, oriShowDefini
 function handleReachabilityGatedRedirectLogout({ def, schemeName, system }) {
   const handleRedirectLogout = () => {
     setTimeout(() => {
-      window.location.href = def.logout
+      window.location.href = def["x-logout"]
     }, 50)
   }
 
-  if (!def.reachability) {
+  if (!def["x-reachability"]) {
     handleRedirectLogout()
     return
   }
 
   system.errActions.clear({ authId: schemeName, type: "auth", source: "auth" })
 
-  probeReachability(def.reachability)
+  probeReachability(def["x-reachability"])
     .then((isReachable) => {
       if (isReachable) {
         handleRedirectLogout()
@@ -181,12 +181,12 @@ function handleReachabilityGatedRedirectLogout({ def, schemeName, system }) {
 }
 
 async function canProceedWithReachability({ def, schemeName, system, unavailableMessage }) {
-  if (!def.reachability) {
+  if (!def["x-reachability"]) {
     return true
   }
 
   try {
-    const isReachable = await probeReachability(def.reachability)
+    const isReachable = await probeReachability(def["x-reachability"])
     if (isReachable) {
       return true
     }
@@ -243,8 +243,8 @@ const BffPlugin = () => () => {
               const def = getDefByScheme(defs, schemeName)
               if (!def) continue
 
-              if (def.scheme === "bff" && def.logout) {
-				if(def.redirectforlogin === true){
+              if (def.scheme === "bff" && def["x-logout"]) {
+				if(def["x-redirectforlogout"] === true){
           handleReachabilityGatedRedirectLogout({ def, schemeName, system })
 
           // async branch handled above
@@ -262,7 +262,7 @@ const BffPlugin = () => () => {
                 return
               }
 
-            fetch(def.logout, { method: "GET", credentials: "include" })
+            fetch(def["x-logout"], { method: "GET", credentials: "include" })
 					     .then(resp => {
 					       if (!resp.ok) system.errActions.newAuthErr({ authId: schemeName, level: "error", source: "auth", message: `BFF logout failed (${resp.status}) — session may still be active. Refresh if issues persist.` })
 						   oriLogout([schemeName]);
@@ -291,7 +291,7 @@ const BffPlugin = () => () => {
               // Only BFF + inline login
 		
               if (def && def.scheme === "bff" ) {
-				if (def.scheme === "bff" && def.redirectforlogin === false) {
+				if (def.scheme === "bff" && def["x-redirectforlogin"] === false) {
 					
 					const payloadSchemaObj = payload[schemeName]
 
@@ -323,7 +323,7 @@ const BffPlugin = () => () => {
 						  }).toString()
 						  
 						  const req = applyBffRequestPolicy({
-						    url: def.login,
+					    url: def["x-login"],
 						    method: "POST",
 						    headers: {
 						      "Content-Type": "application/x-www-form-urlencoded",
@@ -333,7 +333,7 @@ const BffPlugin = () => () => {
 
 						  const resp = await fetch(req.url, req)
 	
-						  /*const resp = await fetch(def.login, {
+					  /*const resp = await fetch(def["x-login"], {
 						    method: "POST",
 						    credentials: "include",
 						    headers: {
@@ -351,7 +351,7 @@ const BffPlugin = () => () => {
 						  }
 	
 						  // session-derived state only (no password retained)
-						  const profile = await fetch(def.profilecheck, {
+					  const profile = await fetch(def["x-profilecheck"], {
 						    credentials: "include",
 						    cache: "no-store",
 						  }).then((r) => r.json())

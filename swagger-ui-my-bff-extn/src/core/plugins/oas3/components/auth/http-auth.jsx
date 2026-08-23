@@ -153,8 +153,8 @@ export default class HttpAuth extends React.Component {
 	
 	if (scheme === "bff") {
 	  let username = value ? value.get("name") : null
-	  const loginUrl = schema.get("login")
-	  const redirectforlogin = schema.get("redirectforlogin") === true
+	  const loginUrl = schema.get("x-login")
+	  const redirectforlogin = schema.get("x-redirectforlogin") === true
 
 	  if (!username && redirectforlogin && loginUrl) {
 	    setTimeout(() => {

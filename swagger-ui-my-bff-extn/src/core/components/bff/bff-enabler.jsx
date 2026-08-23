@@ -37,7 +37,7 @@ export default class BffEnabler extends React.Component {
         if (scheme === "bff" && type === "http") {
          
 
-          const profileUrl = def["profilecheck"];
+          const profileUrl = def["x-profilecheck"];
           if (profileUrl) {
             // fetch login status
             const check = fetch(profileUrl, { credentials: "include", cache: "no-store" })
