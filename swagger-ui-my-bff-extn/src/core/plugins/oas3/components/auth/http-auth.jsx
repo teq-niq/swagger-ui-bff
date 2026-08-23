@@ -1,5 +1,6 @@
 import React from "react"
 import PropTypes from "prop-types"
+import { BFF_LOGIN, BFF_REDIRECT_FOR_LOGIN } from "./../../../bff/extension-keys"
 
 export default class HttpAuth extends React.Component {
   static propTypes = {
@@ -153,8 +154,8 @@ export default class HttpAuth extends React.Component {
 	
 	if (scheme === "bff") {
 	  let username = value ? value.get("name") : null
-	  const loginUrl = schema.get("x-login")
-	  const redirectforlogin = schema.get("x-redirectforlogin") === true
+	  const loginUrl = schema.get(BFF_LOGIN)
+	  const redirectforlogin = schema.get(BFF_REDIRECT_FOR_LOGIN) === true
 
 	  if (!username && redirectforlogin && loginUrl) {
 	    setTimeout(() => {
